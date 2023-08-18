@@ -107,5 +107,4 @@ func main() {
 	router.GET("/users/:id", findUserById)
 	router.DELETE("/users/:id", removeUserById)
 	router.Run("localhost:8080")
-	fmt.Println("All users:", user)
 }

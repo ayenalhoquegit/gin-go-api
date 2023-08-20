@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"sync"
 	"time"
 
 	logger "gin-go-api/log"
@@ -33,7 +34,7 @@ var outboxId int
 
 func getOutbox() {
 	var outbox []OutboxData
-	rows, err := db.Query("SELECT * FROM outbox where status=0  ORDER BY id LIMIT 0,40")
+	rows, err := db.Query("SELECT * FROM outbox where status=0  ORDER BY id LIMIT 0,50")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -48,19 +49,27 @@ func getOutbox() {
 		outbox = append(outbox, u)
 	}
 
+	var wg sync.WaitGroup
+
 	for _, data := range outbox {
-		//insert api data
-		_, err = db.Exec("INSERT INTO api_request (message) VALUES (?)", data.Message)
-		if err != nil {
-			logger.ErrorLogger.Println(err)
-		}
-		// update outbox
-		_, err = db.Exec("UPDATE outbox set status=?, updated_at=? where id=?", 1, currentDateTime(), data.Id)
-		if err != nil {
-			logger.ErrorLogger.Println(err)
-		}
-		logger.InfoLogger.Println("Id : " + strconv.Itoa(data.Id) + " | Receiver : number | result : 1")
+		wg.Add(1)
+		go func(data OutboxData) {
+			defer wg.Done()
+			//insert api data
+			_, err = db.Exec("INSERT INTO api_request (message) VALUES (?)", data.Message)
+			if err != nil {
+				logger.ErrorLogger.Println(err)
+			}
+			// update outbox
+			_, err = db.Exec("UPDATE outbox set status=?, updated_at=? where id=?", 1, currentDateTime(), data.Id)
+			if err != nil {
+				logger.ErrorLogger.Println(err)
+			}
+			logger.InfoLogger.Println("Id : " + strconv.Itoa(data.Id) + " | Receiver : number | result : 1")
+			time.Sleep(time.Millisecond)
+		}(data)
 	}
+	wg.Wait()
 
 }
 
